@@ -1,0 +1,43 @@
+# Python cache / build
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Runtime artifacts
+*.log
+*.tmp
+
+# Project outputs
+results_*/
+
+# Large/raw datasets and generated processed files
+data/raw_14651816/
+data/processed_14651816/*.csv
+data/processed_14651816/*.json
+
+# Optional local datasets not needed in repo history
+data/olive_oil_nir.csv
+*.rar
+*.xlsx
