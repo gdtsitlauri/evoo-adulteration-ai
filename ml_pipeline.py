@@ -176,7 +176,7 @@ def parse_args() -> RunConfig:
     )
     parser.add_argument(
         "--data-path",
-        default="data/olive_oil_nir.csv",
+        default="data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv",
         help="Path to CSV used in --mode real",
     )
     parser.add_argument(

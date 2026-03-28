@@ -1,10 +1,10 @@
-# EVOO Adulteration - Integrity Rebuild
+# EVOO Adulteration - FTIR/Raman Integrity Pipeline
 
 ## Authors
 - George David Tsitlauri
 - Theodora Anna Lasithiotaki
 
-This repository is now structured as a reproducible pre-submission package for EVOO adulteration detection with NIR + ML.
+This repository is structured as a reproducible pre-submission package for EVOO adulteration detection with FTIR/Raman spectroscopy and ML.
 
 Current status:
 - `demo` mode is fully executable with synthetic spectra (workflow validation only).
@@ -39,59 +39,57 @@ Demo mode (no external dataset required):
 python ml_pipeline.py --mode demo --compute auto --output-dir results_demo
 ```
 
-Real mode (requires CSV file):
-
-```bash
-python ml_pipeline.py --mode real --data-path data/olive_oil_nir.csv --compute auto --output-dir results_real
-```
-
-Prepare FTIR dataset (Zenodo 14651816) into pipeline-ready CSV:
-
-```bash
-python scripts/prepare_ftir_dataset.py \
-  --input-xlsx "data/raw_14651816/Data_set_FTIR_Raman/FTIR/FTIR_spectra_Classification Study.xlsx" \
-  --out-dir data/processed_14651816 \
-  --export-provisional
-
-# Outputs:
-# - data/processed_14651816/ftir_classification_spectra.csv
-# - data/processed_14651816/label_suggestion_template.csv
-# - data/processed_14651816/olive_oil_nir_provisional.csv
-# - data/processed_14651816/preparation_summary.json
-```
-
-Then run pipeline on the prepared provisional file:
+Real mode with the current processed dataset in this repository:
 
 ```bash
 python ml_pipeline.py \
   --mode real \
-  --data-path data/processed_14651816/olive_oil_nir_provisional.csv \
+  --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv \
   --compute auto \
-  --output-dir results_14651816_provisional
+  --output-dir results_14651816_confirmed_provisional
+```
+
+GPU-only benchmark (XGBoost GPU path):
+
+```bash
+python ml_pipeline.py \
+  --mode real \
+  --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv \
+  --compute auto \
+  --gpu-models-only \
+  --output-dir results_14651816_confirmed_provisional_gpuonly
+```
+
+Run with your own CSV:
+
+```bash
+python ml_pipeline.py --mode real --data-path <your_csv> --compute auto --output-dir results_real
 ```
 
 Note:
-- `olive_oil_nir_provisional.csv` uses heuristic labels and is only for technical dry-runs.
+- The current workflow is FTIR-based (classification sheet from Zenodo 14651816).
+- Raw Raman files are present in `data/raw_14651816` for future extension.
+- Filenames containing `_nir_` are legacy naming from an earlier draft; they currently store FTIR-derived tabular data.
 - Confirm labels in `label_suggestion_template.csv` using `sample_index` as the unique key
   (some `sample_id` values are duplicated in the source workbook).
 
-After confirmed labels are filled, build the final model-ready dataset:
+If you update labels in `label_suggestion_template.csv`, rebuild a model-ready CSV:
 
 ```bash
 python scripts/build_dataset_from_confirmed_labels.py \
   --spectra-csv data/processed_14651816/ftir_classification_spectra.csv \
   --labels-csv data/processed_14651816/label_suggestion_template.csv \
-  --output-csv data/processed_14651816/olive_oil_nir_confirmed.csv
+  --output-csv data/processed_14651816/olive_oil_ftir_confirmed.csv
 ```
 
-Then run the final real-mode training:
+Then run the pipeline on the rebuilt CSV:
 
 ```bash
 python ml_pipeline.py \
   --mode real \
-  --data-path data/processed_14651816/olive_oil_nir_confirmed.csv \
+  --data-path data/processed_14651816/olive_oil_ftir_confirmed.csv \
   --compute auto \
-  --output-dir results_14651816_confirmed
+  --output-dir results_14651816_ftir_confirmed
 ```
 
 Current working run folders in this repository:
@@ -101,13 +99,13 @@ Current working run folders in this repository:
 Force GPU policy (auto-fallback to CPU if CUDA probe fails):
 
 ```bash
-python ml_pipeline.py --mode real --data-path data/olive_oil_nir.csv --compute gpu --output-dir results_real_gpu
+python ml_pipeline.py --mode real --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv --compute gpu --output-dir results_real_gpu
 ```
 
 Run only GPU-capable models:
 
 ```bash
-python ml_pipeline.py --mode real --data-path data/olive_oil_nir.csv --compute auto --gpu-models-only --output-dir results_gpu_only
+python ml_pipeline.py --mode real --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv --compute auto --gpu-models-only --output-dir results_gpu_only
 ```
 
 Optional key arguments:
@@ -119,7 +117,18 @@ Optional key arguments:
 - `--pca-components 50`
 - `--shap-max-samples 100`
 
-## 3. Input CSV contract (`--mode real`)
+## 3. Dataset files in this repo
+
+- Raw files:
+  - `data/raw_14651816/Data_set_FTIR_Raman/FTIR/FTIR_spectra_Classification Study.xlsx`
+  - `data/raw_14651816/Data_set_FTIR_Raman/Raman/Raman_spectra_Classification Study.xlsx`
+- Processed files:
+  - `data/processed_14651816/ftir_classification_spectra.csv`
+  - `data/processed_14651816/label_suggestion_template.csv`
+  - `data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv`
+  - `data/processed_14651816/preparation_summary.json`
+
+## 4. Input CSV contract (`--mode real`)
 
 Required:
 - A `label` column with binary values `{0,1}`.
@@ -137,7 +146,7 @@ Additional rules:
 - Wavelength columns must be strictly increasing.
 - Data must include both classes.
 
-## 4. Standard output contract
+## 5. Standard output contract
 
 Each run writes:
 - `metrics.csv`
@@ -158,26 +167,7 @@ Each run writes:
   - `07_cv_distribution.png`
   - `06_shap_bar.png` (only if SHAP is compatible and successful)
 
-## 5. Manuscript workflow
-
-Use:
-- `manuscript/MANUSCRIPT_SCAFFOLD.md` for the paper structure.
-- `manuscript/generate_results_section.py` to generate result text from actual run files.
-
-Example:
-
-```bash
-python manuscript/generate_results_section.py \
-  --metrics results_14651816_confirmed_provisional/metrics.csv \
-  --metadata results_14651816_confirmed_provisional/run_metadata.json \
-  --output manuscript/RESULTS_AUTOGEN.md
-```
-
-## 6. Data acquisition protocol
-
-See `DATA_ACQUISITION.md` for what is automated vs. manual due to licensing and source-access constraints.
-
-## 7. Troubleshooting
+## 6. Troubleshooting
 
 - `ModuleNotFoundError`: install dependencies from `requirements.txt`.
 - `xgboost is not installed`: install `requirements-gpu.txt` for GPU-capable model support.
@@ -187,7 +177,7 @@ See `DATA_ACQUISITION.md` for what is automated vs. manual due to licensing and 
 - If SHAP is skipped for an MLP best model, run with `--gpu-models-only` to generate SHAP from `XGBoost_GPU`.
 - GPU fallback happened: check `run_metadata.json -> compute.fallback_events` for exact reason.
 
-## 8. License
+## 7. License
 
 Code in this repository is licensed under the MIT License (see `LICENSE`).
 External datasets keep their original licenses and citation requirements.
