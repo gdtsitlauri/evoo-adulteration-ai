@@ -176,7 +176,7 @@ def parse_args() -> RunConfig:
     )
     parser.add_argument(
         "--data-path",
-        default="data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv",
+        default="data/processed_evoo_ftir_raman/ftir_evoo_authenticity.csv",
         help="Path to CSV used in --mode real",
     )
     parser.add_argument(
@@ -1290,3 +1290,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

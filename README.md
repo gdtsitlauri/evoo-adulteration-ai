@@ -1,21 +1,34 @@
-# EVOO Adulteration - FTIR/Raman Integrity Pipeline
+# EVOO Adulteration AI (FTIR/Raman)
 
 ## Authors
 - George David Tsitlauri
 - Theodora Anna Lasithiotaki
 
-This repository is structured as a reproducible pre-submission package for EVOO adulteration detection with FTIR/Raman spectroscopy and ML.
+This repository contains a reproducible machine-learning pipeline for olive-oil authenticity and adulteration screening using FTIR and Raman spectroscopy.
 
-Current status:
-- `demo` mode is fully executable with synthetic spectra (workflow validation only).
-- `real` mode is supported and enforces strict CSV schema validation.
-- Hybrid compute is supported through `--compute {auto,cpu,gpu}` with safe GPU fallback.
-- No publication claims should be made from `demo` outputs.
-- Current project outputs are in a provisional-label phase pending official sample-code mapping.
+## Scope of this project
+- FTIR main task: `pure EVOO` (label `0`) vs `adulterated EVOO blends` (label `1`)
+- Raman secondary task: `EVOO` (label `0`) vs `non-EVOO oils` (label `1`) on Raman2
 
-## 1. Environment setup (Python 3.12)
+Compute is GPU-aware via `--compute {auto,cpu,gpu}` with safe backend tracking in metadata.
 
-CPU baseline:
+## Repository structure
+
+- `ml_pipeline.py`: main training/evaluation pipeline
+- `scripts/build_dataset_from_confirmed_labels.py`: legacy helper from earlier dataset phase
+- `data/raw_evoo_ftir_raman/`
+  - `ATRPure3.csv`
+  - `ATRAdulteration3.csv`
+  - `Raman1A.csv`
+  - `Raman2.csv`
+  - `OilClassKey.csv`
+- `data/processed_evoo_ftir_raman/`
+  - `ftir_evoo_authenticity.csv`
+  - `raman1a_evoo_vs_other.csv`
+  - `raman2_evoo_vs_other.csv`
+  - `dataset_summary.json`
+
+## Environment setup (Python 3.12)
 
 ```bash
 python -m venv .venv
@@ -25,159 +38,92 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-GPU extras (optional, for XGBoost CUDA):
+Optional GPU extras (XGBoost CUDA path):
 
 ```bash
 pip install -r requirements-gpu.txt
 ```
 
-## 2. Run commands
+## Final reproducible runs
 
-Demo mode (no external dataset required):
-
-```bash
-python ml_pipeline.py --mode demo --compute auto --output-dir results_demo
-```
-
-Real mode with the current processed dataset in this repository:
+Run from repository root (`C:\Users\TOM\Documents\FST_DIT`):
 
 ```bash
-python ml_pipeline.py \
-  --mode real \
-  --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv \
-  --compute auto \
-  --output-dir results_14651816_confirmed_provisional
+python ml_pipeline.py --mode real --data-path data/processed_evoo_ftir_raman/ftir_evoo_authenticity.csv --compute gpu --output-dir results_final_ftir --cv-folds 5 --random-state 42 --shap-max-samples 80 --shap-nsamples 80
+
+python ml_pipeline.py --mode real --data-path data/processed_evoo_ftir_raman/raman2_evoo_vs_other.csv --compute gpu --output-dir results_final_raman2 --cv-folds 5 --random-state 42 --shap-max-samples 80 --shap-nsamples 80
 ```
 
-GPU-only benchmark (XGBoost GPU path):
+Optional strict GPU-model run:
 
 ```bash
-python ml_pipeline.py \
-  --mode real \
-  --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv \
-  --compute auto \
-  --gpu-models-only \
-  --output-dir results_14651816_confirmed_provisional_gpuonly
+python ml_pipeline.py --mode real --data-path data/processed_evoo_ftir_raman/raman2_evoo_vs_other.csv --compute gpu --gpu-models-only --output-dir results_final_raman2_gpuonly --cv-folds 5 --random-state 42 --shap-max-samples 80 --shap-nsamples 80
 ```
 
-Run with your own CSV:
+## Output contract
 
-```bash
-python ml_pipeline.py --mode real --data-path <your_csv> --compute auto --output-dir results_real
-```
-
-Note:
-- The current workflow is FTIR-based (classification sheet from Zenodo 14651816).
-- Raw Raman files are present in `data/raw_14651816` for future extension.
-- Filenames containing `_nir_` are legacy naming from an earlier draft; they currently store FTIR-derived tabular data.
-- Confirm labels in `label_suggestion_template.csv` using `sample_index` as the unique key
-  (some `sample_id` values are duplicated in the source workbook).
-
-If you update labels in `label_suggestion_template.csv`, rebuild a model-ready CSV:
-
-```bash
-python scripts/build_dataset_from_confirmed_labels.py \
-  --spectra-csv data/processed_14651816/ftir_classification_spectra.csv \
-  --labels-csv data/processed_14651816/label_suggestion_template.csv \
-  --output-csv data/processed_14651816/olive_oil_ftir_confirmed.csv
-```
-
-Then run the pipeline on the rebuilt CSV:
-
-```bash
-python ml_pipeline.py \
-  --mode real \
-  --data-path data/processed_14651816/olive_oil_ftir_confirmed.csv \
-  --compute auto \
-  --output-dir results_14651816_ftir_confirmed
-```
-
-Current working run folders in this repository:
-- `results_14651816_confirmed_provisional` (full benchmark set)
-- `results_14651816_confirmed_provisional_gpuonly` (GPU-only, SHAP-ready)
-
-Force GPU policy (auto-fallback to CPU if CUDA probe fails):
-
-```bash
-python ml_pipeline.py --mode real --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv --compute gpu --output-dir results_real_gpu
-```
-
-Run only GPU-capable models:
-
-```bash
-python ml_pipeline.py --mode real --data-path data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv --compute auto --gpu-models-only --output-dir results_gpu_only
-```
-
-Optional key arguments:
-- `--compute auto|cpu|gpu`
-- `--gpu-models-only`
-- `--cv-folds 10`
-- `--random-state 42`
-- `--preprocess snv` (`raw|snv|sg1|sg2|msc`)
-- `--pca-components 50`
-- `--shap-max-samples 100`
-
-## 3. Dataset files in this repo
-
-- Raw files:
-  - `data/raw_14651816/Data_set_FTIR_Raman/FTIR/FTIR_spectra_Classification Study.xlsx`
-  - `data/raw_14651816/Data_set_FTIR_Raman/Raman/Raman_spectra_Classification Study.xlsx`
-- Processed files:
-  - `data/processed_14651816/ftir_classification_spectra.csv`
-  - `data/processed_14651816/label_suggestion_template.csv`
-  - `data/processed_14651816/olive_oil_ftir_confirmed_provisional.csv`
-  - `data/processed_14651816/preparation_summary.json`
-
-## 4. Input CSV contract (`--mode real`)
-
-Required:
-- A `label` column with binary values `{0,1}`.
-- Spectral feature columns only (numeric values, no missing values).
-- Feature naming pattern per column:
-  - `nm_<wavelength>`
-  - `wl_<wavelength>`
-  - `w_<wavelength>`
-  - or `<wavelength>` directly
-
-Examples:
-- `nm_1000`, `nm_1002.14`, `wl_1720`, `2310`
-
-Additional rules:
-- Wavelength columns must be strictly increasing.
-- Data must include both classes.
-
-## 5. Standard output contract
-
-Each run writes:
+Each run generates:
 - `metrics.csv`
 - `cv_results.csv`
 - `run_metadata.json`
-- `metrics.csv` now includes `ExecutionBackend` per model.
-- `run_metadata.json` now includes `compute` block:
-  - requested/effective mode
-  - GPU probe details
-  - fallback events
-  - model-to-backend mapping
-- Figures:
+- figures:
   - `01_spectra_<preprocess>.png`
   - `02_pca_<preprocess>.png`
   - `03_mean_spectra_diff.png`
   - `04_model_comparison.png`
   - `05_confusion_matrix.png`
+  - `06_shap_bar.png` (when SHAP succeeds)
   - `07_cv_distribution.png`
-  - `06_shap_bar.png` (only if SHAP is compatible and successful)
 
-## 6. Troubleshooting
+`metrics.csv` includes `ExecutionBackend` per model.
 
-- `ModuleNotFoundError`: install dependencies from `requirements.txt`.
-- `xgboost is not installed`: install `requirements-gpu.txt` for GPU-capable model support.
-- `Missing required 'label' column`: fix CSV schema.
-- `Feature naming pattern is invalid`: rename spectral columns to accepted pattern.
-- SHAP skipped: check `run_metadata.json -> shap.reason` (this is expected for incompatible runtime/model states).
-- If SHAP is skipped for an MLP best model, run with `--gpu-models-only` to generate SHAP from `XGBoost_GPU`.
-- GPU fallback happened: check `run_metadata.json -> compute.fallback_events` for exact reason.
+`run_metadata.json` includes:
+- requested/effective compute mode
+- GPU probe summary
+- fallback events (if any)
+- model backend mapping
 
-## 7. License
+## Input CSV contract (`--mode real`)
 
-Code in this repository is licensed under the MIT License (see `LICENSE`).
+Required:
+- One binary `label` column with values `{0,1}`
+- Spectral feature columns only (numeric, no missing values)
+- Feature names must match one of:
+  - `nm_<value>`
+  - `wl_<value>`
+  - `w_<value>`
+  - `<value>`
+
+Examples: `nm_1000`, `nm_1002.14`, `wl_1720`, `2310`
+
+Additional checks:
+- Wavelength columns must be strictly increasing
+- Both classes must be present
+
+## Latest final run snapshot (2026-03-29)
+
+- FTIR (`results_final_ftir`):
+  - samples: `199` (79 pure EVOO, 120 adulterated)
+  - features: `6921`
+  - best model: `LogisticRegression`
+  - test Accuracy/F1/ROC-AUC/MCC: `1.000 / 1.000 / 1.000 / 1.000`
+
+- Raman2 (`results_final_raman2`):
+  - samples: `215` (44 EVOO, 171 non-EVOO)
+  - features: `1044`
+  - best model: `MLP`
+  - test Accuracy/F1/ROC-AUC/MCC: `1.000 / 1.000 / 1.000 / 1.000`
+
+## Troubleshooting
+
+- `ModuleNotFoundError`: install dependencies from `requirements.txt`
+- `xgboost is not installed`: install `requirements-gpu.txt`
+- `Missing required 'label' column`: fix CSV schema
+- `Feature naming pattern is invalid`: rename spectral columns to accepted pattern
+- SHAP skipped: check `run_metadata.json -> shap.reason`
+- GPU fallback occurred: check `run_metadata.json -> compute.fallback_events`
+
+## License
+
+Code is released under the MIT License (see `LICENSE`).
 External datasets keep their original licenses and citation requirements.

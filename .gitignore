@@ -18,6 +18,8 @@ env/
 .mypy_cache/
 .ruff_cache/
 .ipynb_checkpoints/
+.mpl_cache/
+.cache/
 
 # OS / editor junk
 .DS_Store
@@ -36,6 +38,9 @@ results_*/
 data/raw_14651816/
 data/processed_14651816/*.csv
 data/processed_14651816/*.json
+data/raw_evoo_ftir_raman/
+data/processed_evoo_ftir_raman/*.csv
+data/processed_evoo_ftir_raman/*.json
 
 # Optional local datasets not needed in repo history
 data/olive_oil_nir.csv
