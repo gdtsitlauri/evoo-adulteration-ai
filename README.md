@@ -114,6 +114,40 @@ Additional checks:
   - best model: `MLP`
   - test Accuracy/F1/ROC-AUC/MCC: `1.000 / 1.000 / 1.000 / 1.000`
 
+## Results and Limitations
+
+### Observed performance
+
+Both tasks achieve perfect held-out scores (Accuracy / F1 / ROC-AUC / MCC = **1.000**) under 5-fold stratified cross-validation:
+
+| Task | Dataset | Samples | Features | Best model |
+|------|---------|---------|----------|------------|
+| FTIR authenticity | `ftir_evoo_authenticity.csv` | 199 | 6 921 | LogisticRegression |
+| Raman oil classification | `raman2_evoo_vs_other.csv` | 215 | 1 044 | MLP |
+
+### Why perfect scores are physically plausible here
+
+FTIR and Raman spectra carry thousands of correlated wavenumber intensities that directly encode molecular composition (fatty-acid profiles, ester bonds, C–H stretches). The chemical difference between pure EVOO and adulterated blends — or between olive oil and unrelated seed oils — is large and consistent across instruments. Prior published work on the same spectral modalities routinely reports >98 % accuracy even with simple linear classifiers, and near-perfect separation is common when adulterant type and concentration vary widely in the training set (as they do here).
+
+### What the scores do *not* guarantee
+
+| Risk factor | Detail |
+|-------------|--------|
+| **Small dataset** | 199 and 215 samples cover a limited range of cultivars, harvest years, adulteration levels, and instrument makes. A model trained here may not generalise to samples collected under different conditions. |
+| **No independent test set** | Results come from 5-fold CV on the full corpus. There is no held-out cohort from a separate lab or growing season. |
+| **Feature-to-sample ratio** | Both datasets are high-dimensional (up to 6 921 features for 199 samples). Even regularised models can memorise subtle batch effects not present in new data. |
+| **Label leakage risk** | If spectral batches map perfectly onto class labels (e.g. all pure samples measured on the same day), CV folds may not break the batch boundary, inflating apparent generalisation. |
+| **Single instrument / preprocessing** | Results were obtained on one preprocessing chain (`--mode real` defaults). Performance on differently pre-processed or differently calibrated spectra is unknown. |
+
+### Recommended next steps before deployment
+
+1. Collect an independent validation set from a different lab or harvest season.
+2. Perform batch-aware cross-validation (group-by-batch or leave-one-batch-out) to test whether batch effects drive the perfect separation.
+3. Test robustness to lower adulterant concentrations and to novel adulterant types not present in the current corpus.
+4. Apply calibration transfer methods if the model is to run on a different spectrometer model.
+
+The pipeline is designed for research reproducibility; the 1.000 scores should be treated as an upper-bound estimate pending the above validation steps.
+
 ## Troubleshooting
 
 - `ModuleNotFoundError`: install dependencies from `requirements.txt`
