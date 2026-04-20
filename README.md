@@ -1,8 +1,18 @@
 # EVOO Adulteration AI (FTIR/Raman)
 
+**Author:** George David Tsitlauri  
+**Affiliation:** Dept. of Informatics & Telecommunications, University of Thessaly, Greece  
+**Contact:** gdtsitlauri@gmail.com  
+**Year:** 2026
+
 ## Authors
-- George David Tsitlauri
-- Theodora Anna Lasithiotaki
+
+| Name | Affiliation | Contact |
+|---|---|---|
+| George David Tsitlauri | Dept. of Informatics & Telecommunications, University of Thessaly, Greece | gdtsitlauri@gmail.com |
+| Theodora Anna Lasithiotaki | Dept. of Food Science and Technology, University of the Peloponnese, Greece | dwra.las@gmail.com |
+
+## Overview
 
 This repository contains a reproducible machine-learning pipeline for olive-oil authenticity and adulteration screening using FTIR and Raman spectroscopy.
 
@@ -15,7 +25,6 @@ Compute is GPU-aware via `--compute {auto,cpu,gpu}` with safe backend tracking i
 ## Repository structure
 
 - `ml_pipeline.py`: main training/evaluation pipeline
-- `scripts/build_dataset_from_confirmed_labels.py`: legacy helper from earlier dataset phase
 - `data/raw_evoo_ftir_raman/`
   - `ATRPure3.csv`
   - `ATRAdulteration3.csv`
@@ -27,6 +36,13 @@ Compute is GPU-aware via `--compute {auto,cpu,gpu}` with safe backend tracking i
   - `raman1a_evoo_vs_other.csv`
   - `raman2_evoo_vs_other.csv`
   - `dataset_summary.json`
+
+## Data
+
+- Data type: real spectroscopy data, not synthetic benchmark data.
+- FTIR task: authentic EVOO versus adulterated EVOO blends.
+- Raman2 task: EVOO versus non-EVOO oils.
+- Current committed datasets are small but real: 199 FTIR samples and 215 Raman2 samples.
 
 ## Environment setup (Python 3.12)
 
@@ -46,7 +62,7 @@ pip install -r requirements-gpu.txt
 
 ## Final reproducible runs
 
-Run from repository root (`C:\Users\TOM\Documents\FST_DIT`):
+Run from repository root (`C:\Users\TOM\Documents\2026\EVOO`):
 
 ```bash
 python ml_pipeline.py --mode real --data-path data/processed_evoo_ftir_raman/ftir_evoo_authenticity.csv --compute gpu --output-dir results_final_ftir --cv-folds 5 --random-state 42 --shap-max-samples 80 --shap-nsamples 80
@@ -100,7 +116,13 @@ Additional checks:
 - Wavelength columns must be strictly increasing
 - Both classes must be present
 
-## Latest final run snapshot (2026-03-29)
+## Latest committed run snapshot (2026-03-29)
+
+Evaluation protocol used for the committed snapshot:
+
+- internal stratified 80/20 holdout split for the reported test metrics
+- 5-fold stratified cross-validation as a stability check
+- no external validation cohort from a different lab, season, or instrument
 
 - FTIR (`results_final_ftir`):
   - samples: `199` (79 pure EVOO, 120 adulterated)
@@ -118,12 +140,17 @@ Additional checks:
 
 ### Observed performance
 
-Both tasks achieve perfect held-out scores (Accuracy / F1 / ROC-AUC / MCC = **1.000**) under 5-fold stratified cross-validation:
+Both tasks achieve perfect internal held-out scores (Accuracy / F1 / ROC-AUC / MCC = **1.000**) on small real-data cohorts:
 
 | Task | Dataset | Samples | Features | Best model |
 |------|---------|---------|----------|------------|
 | FTIR authenticity | `ftir_evoo_authenticity.csv` | 199 | 6 921 | LogisticRegression |
 | Raman oil classification | `raman2_evoo_vs_other.csv` | 215 | 1 044 | MLP |
+
+Holdout split details for the committed snapshot:
+
+- FTIR: train `159` samples (`63` pure, `96` adulterated), test `40` samples (`16` pure, `24` adulterated)
+- Raman2: train `172` samples (`35` EVOO, `137` non-EVOO), test `43` samples (`9` EVOO, `34` non-EVOO)
 
 ### Why perfect scores are physically plausible here
 
@@ -134,7 +161,7 @@ FTIR and Raman spectra carry thousands of correlated wavenumber intensities that
 | Risk factor | Detail |
 |-------------|--------|
 | **Small dataset** | 199 and 215 samples cover a limited range of cultivars, harvest years, adulteration levels, and instrument makes. A model trained here may not generalise to samples collected under different conditions. |
-| **No independent test set** | Results come from 5-fold CV on the full corpus. There is no held-out cohort from a separate lab or growing season. |
+| **No independent external test set** | The current results use an internal stratified holdout split plus cross-validation. There is still no separate cohort from a different lab, harvest season, or instrument. |
 | **Feature-to-sample ratio** | Both datasets are high-dimensional (up to 6 921 features for 199 samples). Even regularised models can memorise subtle batch effects not present in new data. |
 | **Label leakage risk** | If spectral batches map perfectly onto class labels (e.g. all pure samples measured on the same day), CV folds may not break the batch boundary, inflating apparent generalisation. |
 | **Single instrument / preprocessing** | Results were obtained on one preprocessing chain (`--mode real` defaults). Performance on differently pre-processed or differently calibrated spectra is unknown. |
@@ -146,7 +173,7 @@ FTIR and Raman spectra carry thousands of correlated wavenumber intensities that
 3. Test robustness to lower adulterant concentrations and to novel adulterant types not present in the current corpus.
 4. Apply calibration transfer methods if the model is to run on a different spectrometer model.
 
-The pipeline is designed for research reproducibility; the 1.000 scores should be treated as an upper-bound estimate pending the above validation steps.
+The pipeline is designed for research reproducibility; the 1.000 scores should be treated as an upper-bound internal estimate pending the above external validation steps.
 
 ## Troubleshooting
 
@@ -161,3 +188,15 @@ The pipeline is designed for research reproducibility; the 1.000 scores should b
 
 Code is released under the MIT License (see `LICENSE`).
 External datasets keep their original licenses and citation requirements.
+
+## Citation
+
+```bibtex
+@misc{tsitlauri2026evoo,
+  author = {George David Tsitlauri},
+  title  = {EVOO Adulteration AI: Machine Learning for Olive Oil Authenticity Screening via FTIR and Raman Spectroscopy},
+  year   = {2026},
+  institution = {University of Thessaly},
+  email  = {gdtsitlauri@gmail.com}
+}
+```

@@ -4,7 +4,8 @@ EVOO adulteration detection pipeline (integrity rebuild).
 This script provides a reproducible, submission-safe workflow with:
 - explicit execution modes: demo (synthetic) and real (CSV input)
 - strict input schema validation
-- leakage-safe model evaluation using sklearn Pipeline + Stratified CV
+ - leakage-safe model evaluation using sklearn Pipeline, an internal holdout split,
+   and train-only Stratified CV
 - hybrid compute orchestration (CPU/GPU policy with safe fallback)
 - SHAP analysis with compatibility checks and graceful fallback
 - standardized outputs: metrics.csv, cv_results.csv, run_metadata.json, figures
@@ -162,6 +163,11 @@ class MSCTransformer(BaseEstimator, TransformerMixin):
                 slope = 1.0
             corrected[idx] = (spectrum - intercept) / slope
         return corrected
+
+
+def summarize_class_distribution(y: np.ndarray) -> dict[int, int]:
+    class_vals, class_counts = np.unique(y, return_counts=True)
+    return {int(k): int(v) for k, v in zip(class_vals, class_counts)}
 
 
 def parse_args() -> RunConfig:
@@ -650,6 +656,7 @@ def evaluate_models(
     np.ndarray,
     dict[str, str],
     list[dict[str, str]],
+    dict[str, Any],
 ]:
     x_train, x_test, y_train, y_test = train_test_split(
         x,
@@ -658,6 +665,26 @@ def evaluate_models(
         stratify=y,
         random_state=cfg.random_state,
     )
+
+    train_class_distribution = summarize_class_distribution(y_train)
+    test_class_distribution = summarize_class_distribution(y_test)
+    min_train_class_count = min(train_class_distribution.values())
+    if cfg.cv_folds > min_train_class_count:
+        raise ValueError(
+            "cv_folds exceeds the smallest class count in the training split. "
+            f"Got cv_folds={cfg.cv_folds}, smallest training class={min_train_class_count}."
+        )
+
+    split_summary = {
+        "holdout_strategy": "stratified_train_test_split",
+        "cv_scope": "training_split_only",
+        "test_size": float(cfg.test_size),
+        "cv_folds": int(cfg.cv_folds),
+        "train_sample_count": int(len(y_train)),
+        "test_sample_count": int(len(y_test)),
+        "train_class_distribution": train_class_distribution,
+        "test_class_distribution": test_class_distribution,
+    }
 
     max_components = min(cfg.pca_components, x_train.shape[1], x_train.shape[0] - 1)
     if max_components < 2:
@@ -774,7 +801,7 @@ def evaluate_models(
             random_state=cfg.random_state,
         )
         try:
-            cv_scores = cross_val_score(cv_model, x, y, cv=cv, scoring="accuracy")
+            cv_scores = cross_val_score(cv_model, x_train, y_train, cv=cv, scoring="accuracy")
         except Exception as exc:
             if spec.gpu_capable and execution_backend == "gpu":
                 fallback_events.append(
@@ -807,7 +834,7 @@ def evaluate_models(
                     pca_components=max_components,
                     random_state=cfg.random_state,
                 )
-                cv_scores = cross_val_score(cv_model, x, y, cv=cv, scoring="accuracy")
+                cv_scores = cross_val_score(cv_model, x_train, y_train, cv=cv, scoring="accuracy")
             else:
                 fallback_events.append(
                     {
@@ -867,6 +894,7 @@ def evaluate_models(
         y_test,
         model_backend_map,
         fallback_events,
+        split_summary,
     )
 
 
@@ -1148,19 +1176,18 @@ def save_metadata(
     model_backend_map: dict[str, str],
     fallback_events: list[dict[str, str]],
     shap_status: dict[str, Any],
+    split_summary: dict[str, Any],
     output_dir: Path,
 ) -> None:
-    class_vals, class_counts = np.unique(y, return_counts=True)
-    class_distribution = {int(k): int(v) for k, v in zip(class_vals, class_counts)}
-
     metadata = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "mode": cfg.mode,
         "data_source": source,
         "sample_count": int(x.shape[0]),
         "feature_count": int(x.shape[1]),
-        "class_distribution": class_distribution,
+        "class_distribution": summarize_class_distribution(y),
         "config": asdict(cfg),
+        "evaluation_protocol": split_summary,
         "compute": {
             "requested_mode": cfg.compute,
             "effective_mode": effective_compute_mode,
@@ -1206,6 +1233,7 @@ def run(cfg: RunConfig) -> None:
         y_test,
         model_backend_map,
         fallback_events,
+        split_summary,
     ) = evaluate_models(
         x=x,
         y=y,
@@ -1254,6 +1282,7 @@ def run(cfg: RunConfig) -> None:
         model_backend_map=model_backend_map,
         fallback_events=fallback_events,
         shap_status=shap_status,
+        split_summary=split_summary,
         output_dir=output_dir,
     )
 
@@ -1264,6 +1293,15 @@ def run(cfg: RunConfig) -> None:
     print(f"Compute requested/effective: {cfg.compute} -> {effective_compute_mode}")
     print(f"Source: {source}")
     print(f"Samples: {x.shape[0]} | Features: {x.shape[1]}")
+    print(
+        "Holdout split: "
+        f"train={split_summary['train_sample_count']} | "
+        f"test={split_summary['test_sample_count']}"
+    )
+    print(
+        "Cross-validation scope: "
+        f"{split_summary['cv_folds']}-fold on the training split only"
+    )
     print(f"Best model: {best_model_name}")
     print(f"Outputs: {output_dir.resolve()}")
     print("Required artifacts:")
