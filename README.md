@@ -1,9 +1,14 @@
 # EVOO Adulteration AI (FTIR/Raman)
 
-**Author:** George David Tsitlauri  
-**Affiliation:** Dept. of Informatics & Telecommunications, University of Thessaly, Greece  
-**Contact:** gdtsitlauri@gmail.com  
-**Year:** 2026
+
+## Project Metadata
+
+| Field | Value |
+| --- | --- |
+| Author | George David Tsitlauri |
+| Affiliation | Dept. of Informatics & Telecommunications, University of Thessaly, Greece |
+| Contact | gdtsitlauri@gmail.com |
+| Year | 2026 |
 
 ## Authors
 
@@ -77,6 +82,42 @@ python ml_pipeline.py --mode real --data-path data/processed_evoo_ftir_raman/ram
 ```
 
 ## Output contract
+
+## Result Snapshot
+
+Sources:
+
+- `results_final_ftir/metrics.csv`
+- `results_final_raman2/metrics.csv`
+
+Representative committed results:
+
+- FTIR task:
+  - Logistic Regression: `Accuracy = 1.00`, `F1 = 1.00`
+  - SVM-RBF / MLP: `Accuracy = 0.975`, `F1 = 0.9796`
+- Raman2 task:
+  - MLP / Random Forest / XGBoost: `Accuracy = 1.00`, `F1 = 1.00`
+  - Gradient Boosting: `Accuracy = 0.9535`, `F1 = 0.9697`
+
+## Interpretation Boundary
+
+These are strong real-data results for a small spectroscopy study, but they
+should be interpreted with the corresponding sample-size caveat in mind.
+
+- The repository is strongest as an applied ML pipeline for authenticity
+  screening on real spectroscopy data.
+- The current evidence does **not** yet amount to a large external
+  multi-laboratory validation study.
+- This is therefore a strong applied research repository, but narrower in
+  scientific breadth than the flagship systems/security platforms.
+
+## Why EVOO is stronger than a typical small applied-ML repo
+
+- The data basis is real spectroscopy data rather than synthetic proxies.
+- Multiple model families are evaluated and persisted in committed metric files.
+- GPU-aware execution and metadata tracking are implemented cleanly.
+- The repository is narrow by design, but methodologically cleaner than many
+  broader repos with weaker evidence discipline.
 
 Each run generates:
 - `metrics.csv`
@@ -184,19 +225,4 @@ The pipeline is designed for research reproducibility; the 1.000 scores should b
 - SHAP skipped: check `run_metadata.json -> shap.reason`
 - GPU fallback occurred: check `run_metadata.json -> compute.fallback_events`
 
-## License
 
-Code is released under the MIT License (see `LICENSE`).
-External datasets keep their original licenses and citation requirements.
-
-## Citation
-
-```bibtex
-@misc{tsitlauri2026evoo,
-  author = {George David Tsitlauri},
-  title  = {EVOO Adulteration AI: Machine Learning for Olive Oil Authenticity Screening via FTIR and Raman Spectroscopy},
-  year   = {2026},
-  institution = {University of Thessaly},
-  email  = {gdtsitlauri@gmail.com}
-}
-```
